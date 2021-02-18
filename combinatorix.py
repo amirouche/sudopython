@@ -249,6 +249,6 @@ query_parser = one_or_more(take0(sequence(term, either(join(one_or_more(space)),
 def make_query(string):
     return combinatorix(string.strip(), query_parser)
 
-input = '  coucou    "les   loulou"   des   champs  OR villes   '
+input = '  coucou    "les   loulous"   des   champs  OR villes   -loups  '
 
 print(make_query(input))
