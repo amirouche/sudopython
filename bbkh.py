@@ -53,10 +53,9 @@ def merkletree(booleans):
         new = []
         for (right, left) in chunks(booleans, 2):
             value = right or left
-            # new.append(value)
-            # TODO: maybe this is better:
-            new.insert(0, value)
+            new.append(value)
         booleans = new
+    assert index == 0
     return out
 
 
@@ -73,7 +72,7 @@ def bbkh(string):
     fuzz = ''.join('1' if x else '0' for x in tree)
     buzz = int(fuzz, 2)
     assert buzz <= 2 ** (BYTES_COUNT * 8)
-    hash = buzz.to_bytes(BYTES_COUNT, 'big')
+    hash = buzz.to_bytes(BYTES_COUNT, 'little')
     return hash
 
 
@@ -99,8 +98,7 @@ def search(db, space, query, distance, limit=10):
             break
         _, _, other = lexode.unpack(key)
         score = distance(query, other)
-        if score > 65:  # depends on fuzzywuzzy and wild approximation
-            scores[other] = score
+        scores[other] = score
 
     # select candidates backward
     candidates = db.iterator(stop=near, start=lexode.pack((space,)), reverse=True)
@@ -109,7 +107,6 @@ def search(db, space, query, distance, limit=10):
             break
         _, _, other = lexode.unpack(key)
         score = distance(query, other)
-        if score > 65:
-            scores[other] = score
+        scores[other] = score
 
     return scores.most_common(limit)

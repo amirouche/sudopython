@@ -53,12 +53,9 @@ options = dict(
     multiple_processes=False,
     transaction_log=False,
     page_size=1024 ** 2,
-    block_size=10 * 1024 ** 2,    
+    block_size=10 * 1024 ** 2,
 )
 
-db = Path('typofix.okvslite')
-if db.exists():
-    db.unlink()
 
 def index(name):
     name = name.lower()
@@ -112,22 +109,19 @@ def progress(args):
     name, key = args
 
     total += 1
-    
+
     if name is None:
         return
-    
+
     key = bbkh.lexode.pack((b'foobar', key, name))
     if len(key) > size:
         print("new max key", len(key))
         size = len(key)
 
     db.put(key, b'')
-    
+
     if (total % 1_000) == 0:
         print(total, name, size, len(key), int(time() - start))
-
-
-
 
 
 async def main(loop):
@@ -140,8 +134,6 @@ async def main(loop):
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main(loop))
 loop.close()
-
-
 
 start = time()
 top = bbkh.search(db, b'foobar', query, score)
