@@ -8,7 +8,7 @@ from html2text import HTML2Text
 import ulid
 import Stemmer
 import bbkh
-
+import plyvel
 
 SUBSPACE_PREVIEW = -1
 SUBSPACE_BACKWARD = 0
@@ -22,7 +22,7 @@ handler.images_to_alt = True
 html2text = handler.handle
 
 pypi = LSM('pypi.okvslite')
-db = LSM('db.okvslite')
+db = plyvel.DB('sudopython.leveldb', create_if_missing=True)
 
 RE_WORD = re.compile(r"[a-z]+")
 RE_TOKENS = re.compile(r"[a-z0-9._-]+")
@@ -57,14 +57,14 @@ for index, (key, value) in enumerate(pypi):
     # forward index
     counter_words = Counter(words)
     counter_words = tuple(counter_words.items())
-    db[lexode.pack((SUBSPACE_FOWARD, uid))] = lexode.pack((document, counter_words))
+    db.put(lexode.pack((SUBSPACE_FOWARD, uid)), lexode.pack((document, counter_words)))
     # Store stems with backward index
     for stem in stems:
-        db[lexode.pack((SUBSPACE_BACKWARD, stem, uid))] = b''
+        db(lexode.pack((SUBSPACE_BACKWARD, stem, uid)), b'')
 
     # store preview
     preview = ' '.join(document.split())[:1024]
-    db[lexode.pack((SUBSPACE_PREVIEW, uid))] = preview.encode('utf8')
+    db.put(lexode.pack((SUBSPACE_PREVIEW, uid)), preview.encode('utf8'))
 
     # update stem counter
     counter += Counter(stems)
@@ -72,9 +72,18 @@ for index, (key, value) in enumerate(pypi):
     # Store "tokens" with bbkh
     tokens = set(unidecode(x) for x in RE_TOKENS.findall(document) if 3 <= len(x) <= 255)
     for token in tokens:
-        bbkh.index(db, SUBSPACE_BBKH, token)
+        name = name.lower()
+        tokens = sorted(set(''.join(x if x in bbkh.chars else ' ' for x in name).split()))
+        string = ' '.join(token for token in tokens if len(token) > 1)
 
-db[lexode.pack((SUBSPACE_STEM_DOCUMENT_COUNTER,))] = lexode.pack(tuple(counter.items()))
+        if string.isspace():
+            continue
+
+        key = bbkh.bbkh(string)
+        key = lexode.pack((b'foobar', key, name))
+        db.put(key, b'')
+
+db.put(lexode.pack((SUBSPACE_STEM_DOCUMENT_COUNTER,)), lexode.pack(tuple(counter.items())))
 
 
 db.close()
