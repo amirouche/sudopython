@@ -8,7 +8,9 @@ import ulid
 import Stemmer
 import bbkh
 from time import time
-import fuzzywuzzy
+import fuzzywuzzy.fuzz
+import Levenshtein as c
+import levenshtein as py
 
 
 SUBSPACE_PREVIEW = -1
@@ -30,8 +32,34 @@ def strinc(key):
 db = LSM('db.okvslite')
 
 
+def c_distance(a, b):
+    return -c.distance(a, b)
+
+def py_distance(a, b):
+    return -py.distance(a, b, 3)
+
+def fw_distance(a, b):
+    return fuzzywuzzy.fuzz.ratio(a, b)
+
+def best(a, b):
+    d = c.distance(a, b)
+    if d > 3:
+        return 0
+    return fuzzywuzzy.fuzz.ratio(a, b)
+
+distance = sys.argv[1]
+if distance == "c":
+    distance = c_distance
+elif distance == "py":
+    distance = py_distance
+elif distance == "fw":
+    distance = fw_distance
+else:
+    distance = best
+
+
 start = time()
-query = " ".join(sys.argv[1:])
+query = " ".join(sys.argv[2:])
 token = ' '.join(unidecode(query.lower()).split())
 hash = bbkh.bbkh(token)
 near = lexode.pack((SUBSPACE_BBKH, hash, token))
@@ -45,7 +73,7 @@ for index, (key, _) in enumerate(candidates):
     if index == 100:
         break
     _, _, other = lexode.unpack(key)
-    scores[other] = fuzzywuzzy.fuzz.ratio(token, other)
+    scores[other] = distance(token, other)
 
 candidates = db[near:lexode.pack((SUBSPACE_BBKH,))]
 
@@ -53,13 +81,12 @@ for index, (key, _) in enumerate(candidates):
     if index == 100:
         break
     _, _, other = lexode.unpack(key)
-    scores[other] = fuzzywuzzy.fuzz.ratio(token, other)
+    scores[other] = distance(token, other)
 
 print(time() - start)
 
 for token, score in scores.most_common(10):
-    if score > 60:
-        print(score, token)
+    print(score, token)
 
 
 # TODO: use cursor, and properly close the database

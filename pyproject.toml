@@ -22,6 +22,7 @@ jedi = "0.17.1"
 debug = "^0.3.2"
 ipython = "^7.19.0"
 Pympler = "^0.9"
+lxml = "^4.6.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
