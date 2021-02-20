@@ -13,8 +13,10 @@ from fuzzywuzzy import fuzz
 chars = string.ascii_lowercase + string.digits + "$ "
 
 # TODO: maybe extend to trigram
-ONE_HOT_ENCODER = sorted([''.join(x) for x in itertools.product(chars, chars)])
-BITS_COUNT = 2**11
+BIGRAM = [''.join(x) for x in itertools.product(chars, chars)]
+TRIGRAM = [''.join(x) for x in itertools.product(chars, chars, chars)]
+ONE_HOT_ENCODER = sorted(BIGRAM + TRIGRAM)
+BITS_COUNT = 2**16
 
 # BITS_COUNT must be the first power of two that is bigger than
 # ONE_HOT_ENCODER.
@@ -60,10 +62,11 @@ def merkletree(booleans):
 def bbkh(string):
     integer = 0
     string = ' '.join("$" + token + "$" for token in string.split())
-    for gram in ngram(string, 2):
-        hotbit = ONE_HOT_ENCODER.index(gram)
-        hotinteger = 1 << hotbit
-        integer = integer | hotinteger
+    for n in [2, 3]:
+        for gram in ngram(string, n):
+            hotbit = ONE_HOT_ENCODER.index(gram)
+            hotinteger = 1 << hotbit
+            integer = integer | hotinteger
     booleans = integer2booleans(integer)
     tree = merkletree(booleans)
     fuzz = ''.join('1' if x else '0' for x in tree)
