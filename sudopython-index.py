@@ -50,7 +50,7 @@ for index, (key, value) in enumerate(pypi):
 
     # Prepare document
     document = name + " - " + value
-    document = unidecode(value.lower())
+    document = unidecode(document.lower())
     document = html2text(document)
 
     # Prepare forward index and store preview
