@@ -12,7 +12,6 @@ import fuzzywuzzy.fuzz
 import Levenshtein as c
 import levenshtein as py
 
-
 SUBSPACE_PREVIEW = -1
 SUBSPACE_BACKWARD = 0
 SUBSPACE_FOWARD = 1

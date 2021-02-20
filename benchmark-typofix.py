@@ -5,6 +5,7 @@ import sys
 from collections import Counter
 from time import time
 import multiprocessing
+import plyvel
 
 from lsm import LSM
 import bbkh
@@ -49,8 +50,10 @@ for name, value in top:
 
 options = dict(
     # readonly=True,
-    # multiple_processes=True,
-    # transaction_log=True,
+    multiple_processes=False,
+    transaction_log=False,
+    page_size=1024 ** 2,
+    block_size=10 * 1024 ** 2,    
 )
 
 db = Path('typofix.okvslite')
@@ -97,20 +100,33 @@ async def pool_for_each_par_map(loop, pool, f, p, iterator):
             limit = pool._max_workers - len(unfinished)
 
 total = 0
+size = 0
 
-db = LSM('typofix.okvslite', **options)
+# db = LSM('typofix.okvslite', **options)
+db = plyvel.DB('typofix.okvslite', create_if_missing=True)
 
 def progress(args):
-    global total
+    global total, size
 
     name, key = args
 
-    if name is not None:
-        db[bbkh.lexode.pack((b'foobar', key, name))] = b''
-
-    if (total % 10_000) == 0:
-        print(total, name)
     total += 1
+    
+    if name is None:
+        return
+    
+    key = bbkh.lexode.pack((b'foobar', key, name))
+    if len(key) > size:
+        print("new max key", len(key))
+        size = len(key)
+
+    db.put(key, b'')
+    
+    if (total % 1_000) == 0:
+        print(total, name, size, len(key), int(time() - start))
+
+
+
 
 
 async def main(loop):

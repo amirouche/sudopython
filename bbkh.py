@@ -93,7 +93,7 @@ def search(db, space, query, distance, limit=10):
     scores = Counter()
 
     # select candidates foward
-    candidates = db[near:strinc(lexode.pack((space,)))]
+    candidates = db.iterator(start=near, stop=strinc(lexode.pack((space,))))
     for index, (key, _) in enumerate(candidates):
         if index == (limit * 10):
             break
@@ -103,7 +103,7 @@ def search(db, space, query, distance, limit=10):
             scores[other] = score
 
     # select candidates backward
-    candidates = db[near:lexode.pack((space,))]
+    candidates = db.iterator(stop=near, start=lexode.pack((space,)), reverse=True)
     for index, (key, _) in enumerate(candidates):
         if index == (limit * 10):
             break
