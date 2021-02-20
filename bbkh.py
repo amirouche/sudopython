@@ -10,14 +10,18 @@ from fdb import tuple as lexode
 from fuzzywuzzy import fuzz
 
 
-HASH_SIZE = 2**11  # TODO: how is that set?
-BBKH_LENGTH = int(HASH_SIZE * 2 / 8)  # TODO: how is that computed?
-chars = string.ascii_lowercase + string.digits + "-_.$ "
+chars = string.ascii_lowercase + string.digits + "$ "
 
 # TODO: maybe extend to trigram
 ONE_HOT_ENCODER = sorted([''.join(x) for x in itertools.product(chars, chars)])
+BITS_COUNT = 2**11
 
-spacy = str.maketrans(string.punctuation, ' '*len(string.punctuation))
+# BITS_COUNT must be the first power of two that is bigger than
+# ONE_HOT_ENCODER.
+assert len(ONE_HOT_ENCODER) <= BITS_COUNT
+
+# That is related to the merkletree serialization.
+BYTES_COUNT = (2 * BITS_COUNT) // 8
 
 
 def ngram(string, n):
@@ -25,7 +29,7 @@ def ngram(string, n):
 
 
 def integer2booleans(integer):
-    return [x == '1' for x in bin(integer)[2:].zfill(HASH_SIZE)]
+    return [x == '1' for x in bin(integer)[2:].zfill(BITS_COUNT)]
 
 
 def chunks(l, n):
@@ -35,7 +39,6 @@ def chunks(l, n):
 
 
 def merkletree(booleans):
-    assert len(booleans) == HASH_SIZE
     length = (2 * len(booleans) - 1)
     out = [False] * length
     index = length - 1
@@ -47,7 +50,9 @@ def merkletree(booleans):
         new = []
         for (right, left) in chunks(booleans, 2):
             value = right or left
-            new.append(value)
+            # new.append(value)
+            # TODO: maybe this is better:
+            new.insert(0, value)
         booleans = new
     return out
 
@@ -63,13 +68,14 @@ def bbkh(string):
     tree = merkletree(booleans)
     fuzz = ''.join('1' if x else '0' for x in tree)
     buzz = int(fuzz, 2)
-    hash = buzz.to_bytes(BBKH_LENGTH, 'big')
+    assert buzz <= 2 ** (BYTES_COUNT * 8)
+    hash = buzz.to_bytes(BYTES_COUNT, 'big')
     return hash
 
 
 def index(db, space, name):
     name = name.lower()
-    tokens = sorted(set(name.translate(spacy).split()))
+    tokens = sorted(set(''.join(x if x in chars else ' ' for x in name).split()))
     string = ' '.join(token for token in tokens if len(token) > 1)
     if string.isspace():
         return
@@ -78,32 +84,38 @@ def index(db, space, name):
 
 
 def strinc(key):
+    """Next bytes that are not prefix of KEY"""
     key = key.rstrip(b'\xff')
     if len(key) == 0:
         raise ValueError('Key must contain at least one byte not equal to 0xFF.')
 
-    return key[:-1] + bytes([key[-1:] + 1])
+    return key[:-1] + bytes([key[-1] + 1])
 
 
-def search(db, space, string, limit=100):
-    distances = Counter()
+def search(db, space, query, distance, limit=10):
+    hash = bbkh(query)
+    near = lexode.pack((space, hash, query))
 
-    fuzzy = lexode.pack((space, bbkh(string),))
+    scores = Counter()
 
-    for (index, (key, value)) in enumerate(db[fuzzy:strinc(space)]):
-        if index == limit:
+    # select candidates foward
+    candidates = db[near:strinc(lexode.pack((space,)))]
+    for index, (key, _) in enumerate(candidates):
+        if index == (limit * 10):
             break
+        _, _, other = lexode.unpack(key)
+        score = distance(query, other)
+        if score > 65:  # depends on fuzzywuzzy and wild approximation
+            scores[other] = score
 
-        key, label = lexode.unpack(key)
-        delta = fuzz.ratio(string, label)
-        distances[label] = delta
-
-    for (index, (key, value)) in enumerate(db[fuzzy:space]):
-        if index == limit:
+    # select candidates backward
+    candidates = db[near:lexode.pack((space,))]
+    for index, (key, _) in enumerate(candidates):
+        if index == (limit * 10):
             break
+        _, _, other = lexode.unpack(key)
+        score = distance(query, other)
+        if score > 65:
+            scores[other] = score
 
-        key, label = lexode.unpack(key)
-        delta = fuzz.ratio(string, label)
-        distances[label] = delta
-
-    return reversed(distances.most_common(limit))
+    return scores.most_common(limit)

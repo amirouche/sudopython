@@ -20,73 +20,24 @@ SUBSPACE_STEM_DOCUMENT_COUNTER = 2
 SUBSPACE_BBKH = 3
 
 
-def strinc(key):
-    """Next bytes that are not prefix of KEY"""
-    key = key.rstrip(b'\xff')
-    if len(key) == 0:
-        raise ValueError('Key must contain at least one byte not equal to 0xFF.')
-
-    return key[:-1] + bytes([key[-1] + 1])
-
-
 db = LSM('db.okvslite')
 
 
-def c_distance(a, b):
-    return -c.distance(a, b)
-
-def py_distance(a, b):
-    return -py.distance(a, b, 3)
-
-def fw_distance(a, b):
-    return fuzzywuzzy.fuzz.ratio(a, b)
-
-def best(a, b):
+def score(a, b):
     d = c.distance(a, b)
     if d > 3:
         return 0
     return fuzzywuzzy.fuzz.ratio(a, b)
 
-distance = sys.argv[1]
-if distance == "c":
-    distance = c_distance
-elif distance == "py":
-    distance = py_distance
-elif distance == "fw":
-    distance = fw_distance
-else:
-    distance = best
-
-
 start = time()
-query = " ".join(sys.argv[2:])
-token = ' '.join(unidecode(query.lower()).split())
-hash = bbkh.bbkh(token)
-near = lexode.pack((SUBSPACE_BBKH, hash, token))
+query = " ".join(sys.argv[1:])
+query = ' '.join(unidecode(query.lower()).split())
 
-scores = Counter()
-
-# select candidates
-candidates = db[near:strinc(lexode.pack((SUBSPACE_BBKH,)))]
-
-for index, (key, _) in enumerate(candidates):
-    if index == 100:
-        break
-    _, _, other = lexode.unpack(key)
-    scores[other] = distance(token, other)
-
-candidates = db[near:lexode.pack((SUBSPACE_BBKH,))]
-
-for index, (key, _) in enumerate(candidates):
-    if index == 100:
-        break
-    _, _, other = lexode.unpack(key)
-    scores[other] = distance(token, other)
-
+top = bbkh.search(db, SUBSPACE_BBKH, query, score)
 print(time() - start)
 
-for token, score in scores.most_common(10):
-    print(score, token)
+for name, score in top:
+    print(score, name)
 
 
 # TODO: use cursor, and properly close the database
