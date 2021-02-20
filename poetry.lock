@@ -1,4 +1,12 @@
 [[package]]
+name = "aiostream"
+version = "0.4.1"
+description = "Generator-based operators for asynchronous iteration"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "appnope"
 version = "0.1.2"
 description = "Disable App Nap on macOS >= 10.9"
@@ -300,9 +308,12 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "61ffdfd2c5e3c9be49bc0c4f1bc4f06679a6fdf705be1dd5019dd9c22a64f76a"
+content-hash = "29c8cffa15be0fe8511c8b25098903ada835efff703e0fc23f302423792d294f"
 
 [metadata.files]
+aiostream = [
+    {file = "aiostream-0.4.1.tar.gz", hash = "sha256:9055e772f197dc0c1bd3a757edd20b086bc74b257ceb7d690cb3d72b8b70d69a"},
+]
 appnope = [
     {file = "appnope-0.1.2-py2.py3-none-any.whl", hash = "sha256:93aa393e9d6c54c5cd570ccadd8edad61ea0c4b9ea7a01409020c9aa019eb442"},
     {file = "appnope-0.1.2.tar.gz", hash = "sha256:dd83cd4b5b460958838f6eb3000c660b1f9caf2a5b1de4264e941512f603258a"},

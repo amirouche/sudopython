@@ -1,3 +1,4 @@
+import asyncio
 import string
 import itertools
 from time import time
@@ -62,7 +63,7 @@ def merkletree(booleans):
 def bbkh(string):
     integer = 0
     string = ' '.join("$" + token + "$" for token in string.split())
-    for n in [2, 3]:
+    for n in (2, 3):
         for gram in ngram(string, n):
             hotbit = ONE_HOT_ENCODER.index(gram)
             hotinteger = 1 << hotbit
@@ -74,16 +75,6 @@ def bbkh(string):
     assert buzz <= 2 ** (BYTES_COUNT * 8)
     hash = buzz.to_bytes(BYTES_COUNT, 'big')
     return hash
-
-
-def index(db, space, name):
-    name = name.lower()
-    tokens = sorted(set(''.join(x if x in chars else ' ' for x in name).split()))
-    string = ' '.join(token for token in tokens if len(token) > 1)
-    if string.isspace():
-        return
-    key = bbkh(string)
-    db[lexode.pack((space, key, name))] = b''
 
 
 def strinc(key):

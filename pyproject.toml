@@ -16,6 +16,7 @@ ulid-py = "^1.1.0"
 PyStemmer = "^2.0.1"
 fuzzywuzzy = "^0.18.0"
 python-Levenshtein = "^0.12.2"
+aiostream = "^0.4.1"
 
 [tool.poetry.dev-dependencies]
 jedi = "0.17.1"
