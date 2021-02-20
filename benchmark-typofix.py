@@ -89,6 +89,7 @@ async def pool_for_each_par_map(loop, pool, f, p, iterator):
                 else:
                     tasks.append(task)
             tasks = tasks + list(unfinished)
+            assert len(tasks) <= pool._max_workers
             if not tasks:
                 break
             finished, unfinished = await asyncio.wait(
@@ -97,7 +98,7 @@ async def pool_for_each_par_map(loop, pool, f, p, iterator):
             for finish in finished:
                 out = finish.result()
                 f(out)
-            limit = pool._max_workers - len(unfinished)
+            limit = len(finished)
 
 total = 0
 size = 0
