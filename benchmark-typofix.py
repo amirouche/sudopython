@@ -57,22 +57,17 @@ db = Path('typofix.okvslite')
 if db.exists():
     db.unlink()
 
-def index(args):
-    lock, name = args
+def index(name):
     name = name.lower()
     tokens = sorted(set(''.join(x if x in bbkh.chars else ' ' for x in name).split()))
     string = ' '.join(token for token in tokens if len(token) > 1)
+
     if string.isspace():
-        return name
+        return None, None
 
     key = bbkh.bbkh(string)
 
-    with lock:
-        with LSM('typofix.okvslite') as db:
-            with db.transaction():
-                db[bbkh.lexode.pack((b'foobar', key, name))] = b''
-
-    return name
+    return name, key
 
 
 async def pool_for_each_par_map(loop, pool, f, p, iterator):
@@ -103,8 +98,16 @@ async def pool_for_each_par_map(loop, pool, f, p, iterator):
 
 total = 0
 
-def progress(name):
+db = LSM('typofix.okvslite', **options)
+
+def progress(args):
     global total
+
+    name, key = args
+
+    if name is not None:
+        db[bbkh.lexode.pack((b'foobar', key, name))] = b''
+
     if (total % 10_000) == 0:
         print(total, name)
     total += 1
@@ -113,18 +116,15 @@ def progress(name):
 async def main(loop):
 
     with futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
-        manager = multiprocessing.Manager()
-        lock = manager.Lock()
-
         await pool_for_each_par_map(
-            loop, pool, progress, index, ((lock, name) for name in names)
+            loop, pool, progress, index, names
         )
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main(loop))
 loop.close()
 
-db = LSM('typofix.okvslite', **options)
+
 
 start = time()
 top = bbkh.search(db, b'foobar', query, score)
