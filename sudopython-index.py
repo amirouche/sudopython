@@ -35,7 +35,7 @@ counter = Counter()
 for index, (key, value) in enumerate(pypi):
     name = lexode.unpack(key)[0]
     summary, description = lexode.unpack(value)
-    if index % 1_000 == 0:
+    if index % 100 == 0:
         print(index, name, file=sys.stderr)
 
     # Prepare unique identifier
@@ -60,7 +60,7 @@ for index, (key, value) in enumerate(pypi):
     db.put(lexode.pack((SUBSPACE_FOWARD, uid)), lexode.pack((document, counter_words)))
     # Store stems with backward index
     for stem in stems:
-        db(lexode.pack((SUBSPACE_BACKWARD, stem, uid)), b'')
+        db.put(lexode.pack((SUBSPACE_BACKWARD, stem, uid)), b'')
 
     # store preview
     preview = ' '.join(document.split())[:1024]
