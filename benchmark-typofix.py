@@ -20,9 +20,9 @@ def c_distance(a, b):
     return -c.distance(a, b)
 
 def score(a, b):
-    d = c.distance(a, b)
-    if d > 3:
-        return 0
+    # d = c.distance(a, b)
+    # if d > 3:
+    #     return 0
     return fuzzywuzzy.fuzz.ratio(a, b)
 
 with open('pypi-index.html') as f:
@@ -30,7 +30,7 @@ with open('pypi-index.html') as f:
 
 names = index.xpath('/html/body/a/text()')
 
-query = sys.argv[1]
+query = " ".join(sys.argv[1:])
 
 # typofix over all the corpus
 start = time()
@@ -131,9 +131,9 @@ async def main(loop):
             loop, pool, progress, index, names
         )
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main(loop))
-loop.close()
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(main(loop))
+# loop.close()
 
 start = time()
 top = bbkh.search(db, b'foobar', query, score)

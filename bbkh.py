@@ -86,6 +86,7 @@ def strinc(key):
 
 
 def search(db, space, query, distance, limit=10):
+    query = "".join(x if x in chars else ' ' for x in query)
     hash = bbkh(query)
     near = lexode.pack((space, hash, query))
 
@@ -94,7 +95,7 @@ def search(db, space, query, distance, limit=10):
     # select candidates foward
     candidates = db.iterator(start=near, stop=strinc(lexode.pack((space,))))
     for index, (key, _) in enumerate(candidates):
-        if index == (limit * 10):
+        if index ==  limit * 1:
             break
         _, _, other = lexode.unpack(key)
         score = distance(query, other)
@@ -103,7 +104,7 @@ def search(db, space, query, distance, limit=10):
     # select candidates backward
     candidates = db.iterator(stop=near, start=lexode.pack((space,)), reverse=True)
     for index, (key, _) in enumerate(candidates):
-        if index == (limit * 10):
+        if index == limit * 1:
             break
         _, _, other = lexode.unpack(key)
         score = distance(query, other)
