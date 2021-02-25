@@ -1,3 +1,5 @@
+import multiprocessing
+import asyncio
 import sys
 import re
 from collections import Counter
@@ -9,6 +11,9 @@ import ulid
 import Stemmer
 import bbkh
 import plyvel
+from concurrent import futures
+from multicore import pool_for_each_par_map
+
 
 SUBSPACE_PREVIEW = -1
 SUBSPACE_BACKWARD = 0
@@ -30,13 +35,18 @@ RE_TOKENS = re.compile(r"[a-z0-9._-]+")
 stemmer = Stemmer.Stemmer('english')
 stemit = stemmer.stemWords
 
-counter = Counter()
+counter_stems = Counter()
 
-for index, (key, value) in enumerate(pypi):
+
+def generator():
+    for (key, value) in pypi:
+        yield key, value
+
+
+def index(args):
+    key, value = args
     name = lexode.unpack(key)[0]
     summary, description = lexode.unpack(value)
-    if index % 100 == 0:
-        print(index, name, file=sys.stderr)
 
     # Prepare unique identifier
     uid = ulid.new().bytes
@@ -52,22 +62,23 @@ for index, (key, value) in enumerate(pypi):
     stems = set(stemit(words))
 
     if not stems:
-        continue
+        return name
 
+    out = []
     # forward index
     counter_words = Counter(words)
     counter_words = tuple(counter_words.items())
-    db.put(lexode.pack((SUBSPACE_FOWARD, uid)), lexode.pack((document, counter_words)))
+    out.append((lexode.pack((SUBSPACE_FOWARD, uid)), lexode.pack((document, counter_words))))
     # Store stems with backward index
     for stem in stems:
-        db.put(lexode.pack((SUBSPACE_BACKWARD, stem, uid)), b'')
+        out.append((lexode.pack((SUBSPACE_BACKWARD, stem, uid)), b''))
 
     # store preview
     preview = ' '.join(document.split())[:1024]
-    db.put(lexode.pack((SUBSPACE_PREVIEW, uid)), preview.encode('utf8'))
+    out.append((lexode.pack((SUBSPACE_PREVIEW, uid)), preview.encode('utf8')))
 
     # update stem counter
-    counter += Counter(stems)
+    counter = Counter(stems)
 
     # Store "tokens" with bbkh
     tokens = set(unidecode(x) for x in RE_TOKENS.findall(document) if 3 <= len(x) <= 255)
@@ -81,9 +92,36 @@ for index, (key, value) in enumerate(pypi):
 
         key = bbkh.bbkh(string)
         key = lexode.pack((b'foobar', key, name))
-        db.put(key, b'')
+        out.append((key, b''))
 
-db.put(lexode.pack((SUBSPACE_STEM_DOCUMENT_COUNTER,)), lexode.pack(tuple(counter.items())))
+    return name, counter, out
+
+
+total = 0
+def progress(args):
+    global total, counter_stems
+    name, counter, kvs = args
+    if total % 10_000 == 0:
+        print(total, name)
+    total += 1
+    counter_stems += counter
+    for key, value in kvs:
+        db.put(key, value)
+
+
+async def main(loop):
+
+    with futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
+        await pool_for_each_par_map(
+            loop, pool, progress, index, generator()
+        )
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main(loop))
+loop.close()
+
+
+db.put(lexode.pack((SUBSPACE_STEM_DOCUMENT_COUNTER,)), lexode.pack(tuple(counter_stems.items())))
 
 
 db.close()
