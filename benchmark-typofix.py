@@ -25,6 +25,10 @@ def score(a, b):
         return 0
     return fuzzywuzzy.fuzz.ratio(a, b)
 
+def score2(a, b):
+    return fuzzywuzzy.fuzz.ratio(a, b)
+
+
 with open('pypi-index.html') as f:
     index = lxml.html.parse(f)
 
@@ -37,14 +41,17 @@ start = time()
 scores = Counter()
 
 for name in names:
-    scores[name] = score(name, query)
+    scores[name] = score2(name, query)
 
 top = scores.most_common(10)
 
 print(time() - start)
 
+total = 0
 for name, value in top:
+    total += value
     print(value, name)
+print(total)
 
 # typofix over neighboor
 
@@ -65,9 +72,9 @@ def index(name):
     if string.isspace():
         return None, None
 
-    key = bbkh.bbkh(string)
+    keys = bbkh.bbkh(string)
 
-    return name, key
+    return name, keys
 
 
 async def pool_for_each_par_map(loop, pool, f, p, iterator):
@@ -106,22 +113,19 @@ db = plyvel.DB('typofix.okvslite', create_if_missing=True)
 def progress(args):
     global total, size
 
-    name, key = args
+    name, keys = args
 
     total += 1
 
     if name is None:
         return
 
-    key = bbkh.lexode.pack((b'foobar', key, name))
-    if len(key) > size:
-        print("new max key", len(key))
-        size = len(key)
+    for key in keys:
+        key = bbkh.lexode.pack((b'foobar', key, name))
+        db.put(key, b'')
 
-    db.put(key, b'')
-
-    if (total % 1_000) == 0:
-        print(total, name, size, len(key), int(time() - start))
+    if (total % 10_000) == 0:
+        print(total, name)
 
 
 async def main(loop):
@@ -131,13 +135,16 @@ async def main(loop):
             loop, pool, progress, index, names
         )
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main(loop))
-loop.close()
+# loop = asyncio.get_event_loop()
+# loop.run_until_complete(main(loop))
+# loop.close()
 
 start = time()
-top = bbkh.search(db, b'foobar', query, score)
+top = bbkh.search(db, b'foobar', query, score2)
 print(time() - start)
 
+total = 0
 for name, value in top:
+    total += value
     print(value, name)
+print(total)
